@@ -4,11 +4,19 @@ let
   cfg = config.preservation;
 
   inherit (import ./lib.nix { inherit lib; })
+    getAllFiles
+    getAllDirectories
     mkRegularMountUnits
     mkInitrdMountUnits
     mkRegularTmpfilesRules
     mkInitrdTmpfilesRules
     ;
+
+  initrdEntries = lib.any (e: e.inInitrd) (
+    lib.concatLists (
+      lib.mapAttrsToList (_: p: getAllFiles p ++ getAllDirectories p) cfg.preserveAt
+    )
+  );
 in
 {
   imports = [
@@ -18,8 +26,8 @@ in
   config = lib.mkIf cfg.enable {
     assertions = [
       {
-        assertion = config.boot.initrd.systemd.enable;
-        message = "This module cannot be used with scripted initrd.";
+        assertion = initrdEntries -> config.boot.initrd.systemd.enable;
+        message = "preservation: entries with `inInitrd = true` require the systemd initrd.";
       }
     ];
 
